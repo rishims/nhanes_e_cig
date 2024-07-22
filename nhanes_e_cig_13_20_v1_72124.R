@@ -2,7 +2,6 @@
 # Rishi Shah
 # July 21, 2024
 # Study period is 2013-2020 and data source is the National Health and Nutrition Examination Survey
-# double check the full analysis again
 
 # load necessary libraries
 library(nhanesA)
