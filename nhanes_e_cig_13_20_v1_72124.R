@@ -88,9 +88,9 @@ demo_data_17_20 <- demo_data_17_20 %>%
 # adjust survey weights for pooled year analyses: https://www.cdc.gov/nchs/data/series/sr_02/sr02-190.pdf
 demo_data_13_14 <- demo_data_13_14 %>% mutate(WTADJ = WTINTPRP * (2 / 7.2), WTADJMEC = WTMECPRP * (2 / 7.2))
 demo_data_15_16 <- demo_data_15_16 %>% mutate(WTADJ = WTINTPRP * (2 / 7.2), WTADJMEC = WTMECPRP * (2 / 7.2))
-demo_data_17_20 <- demo_data_17_20 %>% mutate(WTADJ = WTINTPRP * (3.2 / 7.2), WTADJMEC = WTMECPRP * (2 / 7.2))
+demo_data_17_20 <- demo_data_17_20 %>% mutate(WTADJ = WTINTPRP * (3.2 / 7.2), WTADJMEC = WTMECPRP * (3.2 / 7.2))
 
-# match cotinine data variables across survey cycles
+# mathc cotinine data variables across survey cycles
 cot_data_17_20 <- cot_data_17_20 %>% rename(LBXHCT = LBXHCOT, LBDHCTLC = LBDHCOLC)
 
 # smoking variables
@@ -108,7 +108,9 @@ vars <- c(
   "SMQ690G", # Used last 5 days - Hookah, water pipes
   "SMQ845",  # Number of days smoked water pipe in the last 5 days
   "SMQ690H", # Used last 5 days - E-cigarettes
-  "SMQ849"   # Number of days smoked e-cigarette in the last 5 days
+  "SMQ849",  # Number of days smoked e-cigarette in the last 5 days
+  "SMQ851",  # Used smokeless tobacco last 5 days
+  "SMQ863"   # Used nicotine replacement last 5 days 
 )
 
 smoke_data_13_14 <- smoke_data_13_14 %>% select(all_of(vars))
@@ -130,10 +132,10 @@ data <- left_join(data, e_cigarette, by = "SEQN")
 
 # analysis ----
 # exclude all smokers (other than e-cigarette users)
-data <- data %>% mutate(VAPES = case_when(SMQ690H == 8 & is.na(SMQ690A) & is.na(SMQ690B) & is.na(SMQ690C) & is.na(SMQ690G) ~ 1,
+data <- data %>% mutate(ONLY_VAPES = case_when((SMQ863 == "No" | is.na(SMQ863)) & SMQ851 == "No" & SMQ681 == "Yes" & SMQ690H == 8 & is.na(SMQ690A) & is.na(SMQ690B) & is.na(SMQ690C) & is.na(SMQ690G) ~ 1,
                                               TRUE ~ 0)) # SMQ690A != 1 & SMQ690B != 2 & SMQ690C != 3 & SMQ690G != 7, also does smokeless tobacco matter?
 
-data <- data %>% filter(VAPES == 1 & LBDCOTLC == "At or above the detection limit") # lower limit of detection for cotinine is 0.015 ng/mL
+data <- data %>% filter(ONLY_VAPES == 1 & LBDCOTLC == "At or above the detection limit") # lower limit of detection for cotinine is 0.015 ng/mL
 
 # define the survey design
 svy_design <- svydesign(
@@ -224,4 +226,3 @@ t1_all <- (Table1_all_format <- tbl_summary(
   missing_text = "Missing",
   include = c(AGECAT, RIAGENDR, RIDRETH1, INC_BINARY)
 )) #%>% add_p(pvalue_fun = function(x) style_pvalue(x, digits = 3))
-
