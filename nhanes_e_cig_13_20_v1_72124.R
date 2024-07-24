@@ -131,7 +131,7 @@ data <- left_join(demographics, cotinine, by = "SEQN")
 data <- left_join(data, e_cigarette, by = "SEQN")
 
 # analysis ----
-# exclude all smokers (other than e-cigarette users)
+# exclude all smokers (other than e-cigarette users) and all smokeless tobacco users and nicotine replacement product users
 data <- data %>% mutate(ONLY_VAPES = case_when((SMQ863 == "No" | is.na(SMQ863)) & SMQ851 == "No" & SMQ681 == "Yes" & SMQ690H == 8 & is.na(SMQ690A) & is.na(SMQ690B) & is.na(SMQ690C) & is.na(SMQ690G) ~ 1,
                                               TRUE ~ 0)) # SMQ690A != 1 & SMQ690B != 2 & SMQ690C != 3 & SMQ690G != 7, also does smokeless tobacco matter?
 
