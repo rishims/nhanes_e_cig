@@ -132,10 +132,11 @@ data <- left_join(data, e_cigarette, by = "SEQN")
 
 # analysis ----
 # exclude all smokers (other than e-cigarette users) and all smokeless tobacco users and nicotine replacement product users
-data <- data %>% mutate(ONLY_VAPES = case_when((SMQ863 == "No" | is.na(SMQ863)) & SMQ851 == "No" & SMQ681 == "Yes" & SMQ690H == 8 & is.na(SMQ690A) & is.na(SMQ690B) & is.na(SMQ690C) & is.na(SMQ690G) ~ 1,
-                                              TRUE ~ 0)) # SMQ690A != 1 & SMQ690B != 2 & SMQ690C != 3 & SMQ690G != 7, also does smokeless tobacco matter?
+data <- data %>% mutate(ONLY_VAPES = case_when(LBDCOTLC == "At or above the detection limit" & (SMQ863 == "No" | is.na(SMQ863)) & SMQ851 == "No" & SMQ681 == "Yes" & SMQ690H == 8 & is.na(SMQ690A) & is.na(SMQ690B) & is.na(SMQ690C) & is.na(SMQ690G) ~ 1,
+                                              TRUE ~ 0)) # lower limit of detection for cotinine is 0.015 ng/mL
 
-data <- data %>% filter(ONLY_VAPES == 1 & LBDCOTLC == "At or above the detection limit") # lower limit of detection for cotinine is 0.015 ng/mL
+# for estimating cotinine levels in exclusive e-cigarette users
+data <- data %>% filter(ONLY_VAPES == 1) 
 
 # define the survey design
 svy_design <- svydesign(
@@ -188,6 +189,24 @@ raw_cotinine <- ggplot(data, aes(x = as.factor(SMQ849), y = LBXCOT)) +
     legend.position = "none"
   )
 
+
+# for roc and regression analysis, subset data to only include exclusive e-cigarette users and non-tobacco users of any kind
+data_filtered <- data %>% filter(
+  ONLY_VAPES == 1 | 
+    (SMQ681 == "No" & 
+       SMQ851 == "No" & 
+       SMQ863 == "No")
+)
+
+# define the survey design
+svy_design_filtered <- svydesign(
+  id = ~SDMVPSU,
+  strata = ~SDMVSTRA,
+  weights = ~WTADJMEC,
+  data = data_filtered,
+  nest = TRUE
+)
+
 # covariates 
 
 # race/ethnicity, RIDRETH1 is already factored
@@ -217,7 +236,8 @@ data$INC_BINARY <- factor(data$INC_BINARY, levels = labels, labels = levels)
 
 # create sample summary table
 t1_all <- (Table1_all_format <- tbl_summary(
-  data = data, 
+  data = data_filtered,
+  by = "ONLY_VAPES",
   statistic = list(
     AGECAT ~ "{n} ({p})",
     RIAGENDR ~ "{n} ({p})",
@@ -225,4 +245,16 @@ t1_all <- (Table1_all_format <- tbl_summary(
     INC_BINARY ~ "{n} ({p})"),
   missing_text = "Missing",
   include = c(AGECAT, RIAGENDR, RIDRETH1, INC_BINARY)
-)) #%>% add_p(pvalue_fun = function(x) style_pvalue(x, digits = 3))
+)) %>% add_p(pvalue_fun = function(x) style_pvalue(x, digits = 3))
+
+# fit regression model
+fit <- svyglm(ONLY_VAPES ~ 
+                relevel(RIDRETH1, ref = "Non-Hispanic White") + 
+                relevel(RIAGENDR, ref = "Male") +
+                relevel(INC_BINARY, ref = "Middle/High income") + 
+                relevel(AGECAT, ref = "≥26"),
+              design = svy_design_filtered, 
+              data = data_filtered,
+              family = quasibinomial(link = 'logit'))
+
+logistic.display(fit)
