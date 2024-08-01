@@ -22,6 +22,11 @@ smoke_data_13_14 <- nhanes("SMQRTU_H") # recent tobacco use 2013-2014
 smoke_data_15_16 <- nhanes("SMQRTU_I") # recent tobacco use 2015-2016
 smoke_data_17_20 <- nhanes("P_SMQRTU") # recent tobacco use 2017-2020
 
+# import at home smoker data
+shs_data_13_14 <- nhanes("SMQFAM_H") # household smoking data for 2013-2014
+shs_data_15_16 <- nhanes("SMQFAM_I") # household smoking data for 2015-2016
+shs_data_17_20 <- nhanes("P_SMQFAM") # household smoking data for 2017-2020
+
 # import serum cotinine data
 cot_data_13_14 <- nhanes("COT_H") # serum cotinine data for 2013-2014
 cot_data_15_16 <- nhanes("COT_I") # serum cotinine data for 2015-2016
@@ -93,6 +98,11 @@ demo_data_17_20 <- demo_data_17_20 %>% mutate(WTADJ = WTINTPRP * (3.2 / 7.2), WT
 # mathc cotinine data variables across survey cycles
 cot_data_17_20 <- cot_data_17_20 %>% rename(LBXHCT = LBXHCOT, LBDHCTLC = LBDHCOLC)
 
+# select shs data
+shs_data_13_14 <- shs_data_13_14 %>% select("SEQN", "SMD470") # of people who smoke inside respondent's home
+shs_data_15_16 <- shs_data_15_16 %>% select("SEQN", "SMD470") # of people who smoke inside respondent's home
+shs_data_17_20 <- shs_data_17_20 %>% select("SEQN", "SMD470") # of people who smoke inside respondent's home
+
 # smoking variables
 vars <- c(
   "SEQN",    # Respondent sequence number
@@ -123,17 +133,27 @@ demographics <- bind_rows(demo_data_13_14, demo_data_15_16, demo_data_17_20)
 # bind serum cotinine data
 cotinine <- bind_rows(cot_data_13_14, cot_data_15_16, cot_data_17_20)
 
+# bind shs data
+shs <- bind_rows(shs_data_13_14, shs_data_15_16, shs_data_17_20)
+
 # bind recent tobacco use data
 e_cigarette <- bind_rows(smoke_data_13_14, smoke_data_15_16, smoke_data_17_20)
 
 # join all data
 data <- left_join(demographics, cotinine, by = "SEQN")
 data <- left_join(data, e_cigarette, by = "SEQN")
+data <- left_join(data, shs, by = "SEQN")
 
 # analysis ----
 # exclude all smokers (other than e-cigarette users) and all smokeless tobacco users and nicotine replacement product users
 data <- data %>% mutate(ONLY_VAPES = case_when(LBDCOTLC == "At or above the detection limit" & (SMQ863 == "No" | is.na(SMQ863)) & SMQ851 == "No" & SMQ681 == "Yes" & SMQ690H == 8 & is.na(SMQ690A) & is.na(SMQ690B) & is.na(SMQ690C) & is.na(SMQ690G) ~ 1,
                                               TRUE ~ 0)) # lower limit of detection for cotinine is 0.015 ng/mL
+
+data <- data %>% mutate(SHS_EXPOSURE = case_when(SMD470 %in% c("1 household member smokes inside the house", 
+                                                               "2 household members smoke inside the house",
+                                                               "2 or more household members smoke inside the house",
+                                                               "3 or more household members smoke inside the house") ~ 1,
+                                                 TRUE ~ 0))
 
 # for estimating cotinine levels in exclusive e-cigarette users
 data <- data %>% filter(ONLY_VAPES == 1) 
