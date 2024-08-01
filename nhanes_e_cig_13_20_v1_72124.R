@@ -146,17 +146,23 @@ data <- left_join(data, shs, by = "SEQN")
 
 # analysis ----
 # exclude all smokers (other than e-cigarette users) and all smokeless tobacco users and nicotine replacement product users
+# 1 = exclusive e-cigarette user in the last 5 days
 data <- data %>% mutate(ONLY_VAPES = case_when(LBDCOTLC == "At or above the detection limit" & (SMQ863 == "No" | is.na(SMQ863)) & SMQ851 == "No" & SMQ681 == "Yes" & SMQ690H == 8 & is.na(SMQ690A) & is.na(SMQ690B) & is.na(SMQ690C) & is.na(SMQ690G) ~ 1,
                                               TRUE ~ 0)) # lower limit of detection for cotinine is 0.015 ng/mL
 
+# create variable for SHS exposure inside the respondent's home: 1 = respondent lives with at least 1 person who smokes inside their home
 data <- data %>% mutate(SHS_EXPOSURE = case_when(SMD470 %in% c("1 household member smokes inside the house", 
                                                                "2 household members smoke inside the house",
                                                                "2 or more household members smoke inside the house",
                                                                "3 or more household members smoke inside the house") ~ 1,
                                                  TRUE ~ 0))
 
+# create variable for tobacco use status in the last 5 days: 1 = non smoker/tobacco user
+data <- data %>% mutate(NON_SMOKER = case_when(SMQ681 == "No" & SMQ851 == "No" & SMQ863 == "No" ~ 1,
+                                               TRUE ~ 0))
+
 # for estimating cotinine levels in exclusive e-cigarette users
-data <- data %>% filter(ONLY_VAPES == 1) 
+data_e_cig <- data %>% filter(ONLY_VAPES == 1) 
 
 # define the survey design
 svy_design <- svydesign(
@@ -212,10 +218,7 @@ raw_cotinine <- ggplot(data, aes(x = as.factor(SMQ849), y = LBXCOT)) +
 
 # for roc and regression analysis, subset data to only include exclusive e-cigarette users and non-tobacco users of any kind
 data_filtered <- data %>% filter(
-  ONLY_VAPES == 1 | 
-    (SMQ681 == "No" & 
-       SMQ851 == "No" & 
-       SMQ863 == "No")
+  ONLY_VAPES == 1 | NON_SMOKER == 1
 )
 
 # define the survey design
